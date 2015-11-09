@@ -1,0 +1,13 @@
+[Unit]
+Description=Buildbot systemd unit for %i
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=-{{ buildslave_base_path }}/%i/env.sh
+ExecStart=/bin/bash -c '{{ buildslave_base_path }}/%i/bin/buildslave start --nodaemon {{ buildslave_base_path }}/%i/'
+ExecReload=/bin/bash -c '{{ buildslave_base_path }}/%i/bin/buildslave reconfig {{ buildslave_base_path }}/%i/'
+ExecStop=/bin/bash -c '{{ buildslave_base_path }}/%i/bin/buildslave stop {{ buildslave_base_path }}/%i/'
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,52 @@
+- name: "compute some vars"
+  set_fact:
+    current_buildslave: >
+      {{ buildbot_vars[buildmaster_name].buildslaves[buildslave_name] }}
+    current_buildmaster: >
+      {{ buildbot_vars[buildmaster_name] }}
+
+- name: "install python pip/virtualenv"
+  pacman: name={{item}} state=present
+  with_items:
+    - python2-pip
+    - python2-virtualenv
+
+- name: "create buildbot directory"
+  file:
+    name: '{{ buildslave_base_path }}'
+    state: directory
+
+- name: "install virtual env"
+  pip:
+    name: '{{item}}'
+    state: 'present'
+    virtualenv: '{{ buildslave_base_path }}/{{buildslave_name}}'
+    virtualenv_command: virtualenv2
+  with_items:
+    - buildbot-slave
+
+- name: "create buildbot_slave"
+  command: >
+    ./bin/buildslave create-slave .
+    {% if current_buildmaster.hostname == inventory_hostname %}
+        localhost
+    {% else %}
+        {{ current_buildmaster.hostname }}
+    {%- endif %}{% if
+        current_buildmaster.slave_api_port != 9989
+    %}:{{current_buildmaster.slave_api_port}}{%
+    endif %}
+    {{ buildslave_name }}
+    {{ current_buildslave.pass}}
+  args:
+    chdir: '{{ buildslave_base_path }}/{{buildslave_name}}'
+    creates: >
+      {{ buildslave_base_path }}/{{ buildslave_name }}/buildbot.tac
+
+- name: "install systemd init script"
+  template:
+    src: buildslave.service.j2
+    dest: /etc/systemd/system/buildslave@.service
+
+- name: "start and enable systemd"
+  service: name=buildslave@{{ buildslave_name }} state=started enabled=True
